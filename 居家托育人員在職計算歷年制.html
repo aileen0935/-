@@ -8,23 +8,26 @@
         body { font-family: "Microsoft JhengHei", sans-serif; padding: 20px; line-height: 1.6; background-color: #f4f7f6; }
         .container { max-width: 900px; margin: auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
         h2 { color: #2c3e50; text-align: center; border-bottom: 2px solid #3498db; padding-bottom: 10px; }
-        .input-group { margin-bottom: 20px; display: flex; gap: 20px; flex-wrap: wrap; }
-        .input-item { flex: 1; min-width: 200px; }
+        .no-print { background: #fff; padding: 15px; border: 1px solid #eee; border-radius: 5px; margin-bottom: 20px; }
+        .input-group { margin-bottom: 15px; display: flex; gap: 20px; flex-wrap: wrap; }
+        .input-item { flex: 1; min-width: 250px; }
         label { display: block; margin-bottom: 5px; font-weight: bold; }
         input { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; }
-        button { background-color: #3498db; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; margin-top: 10px; }
+        button { background-color: #3498db; color: white; padding: 12px 24px; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; margin-top: 10px; font-weight: bold; }
         button:hover { background-color: #2980b9; }
         .print-btn { background-color: #27ae60; margin-left: 10px; }
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; background: #fff; }
         th, td { border: 1px solid #ddd; padding: 12px; text-align: center; }
         th { background-color: #f8f9fa; }
-        .highlight { background-color: #fff9c4; font-weight: bold; }
-        .note { font-size: 0.9em; color: #666; margin-top: 15px; border-left: 4px solid #3498db; padding-left: 15px; }
+        .highlight { background-color: #fff9c4; font-weight: bold; color: #e67e22; }
+        .info-box { background: #eef7ff; padding: 15px; border-radius: 5px; margin-bottom: 20px; border: 1px solid #d1e9ff; }
+        .note { font-size: 0.9em; color: #555; margin-top: 20px; border-left: 4px solid #3498db; padding-left: 15px; }
         
         @media print {
-            .no-print { display: none; }
+            .no-print { display: none !important; }
             body { background: white; padding: 0; }
-            .container { box-shadow: none; border: none; width: 100%; max-width: 100%; }
+            .container { box-shadow: none; border: none; width: 100%; max-width: 100%; margin: 0; padding: 0; }
+            h2 { font-size: 20pt; }
         }
     </style>
 </head>
@@ -41,24 +44,26 @@
             </div>
             <div class="input-item">
                 <label>登記證生效日期 (西元)：</label>
-                <input type="date" id="startDate" onchange="calculate()">
+                <input type="date" id="startDate">
             </div>
         </div>
-        <button onclick="calculate()">開始計算</button>
-        <button class="print-btn" onclick="window.print()">列印結果</button>
+        <button onclick="calculate()">開始計算時數</button>
+        <button class="print-btn" onclick="window.print()">列印報表</button>
     </div>
 
     <div id="resultArea">
-        <p><strong>托育人員姓名：</strong> <span id="displayUserName">---</span></p>
-        <p><strong>登記證有效期限：</strong> <span id="displayDuration">---</span></p>
+        <div class="info-box">
+            <p><strong>托育人員姓名：</strong> <span id="displayUserName">---</span></p>
+            <p><strong>登記證有效期間：</strong> <span id="displayDuration">---</span></p>
+        </div>
         
         <table id="hoursTable">
             <thead>
                 <tr>
-                    <th>年度別</th>
-                    <th>計算期間</th>
-                    <th>應上總時數</th>
-                    <th>其中應含CPR</th>
+                    <th>年度</th>
+                    <th>計算區間 (起～訖)</th>
+                    <th>應上時數 (總)</th>
+                    <th>應含 CPR</th>
                 </tr>
             </thead>
             <tbody>
@@ -67,125 +72,129 @@
     </div>
 
     <div class="note">
-        <p><strong>※ 規則備註：</strong><br>
-        1. <strong>114年過渡期：</strong>採「登記週年日」至 114/12/31 區間計算，<strong>未滿一個月不計</strong>。<br>
-        2. <strong>115年起曆年制：</strong>每年 1/1 至 12/31 計算。當年未滿一年者，起始月未滿一月不計，屆期月未滿一月<strong>強制算一月</strong>。<br>
-        3. <strong>補救機制：</strong>114年度未達標者可於 115 年補足；116 年起未達標將直接通報違規。</p>
+        <p><strong>※ 系統規則備註：</strong><br>
+        1. <strong>114過渡期：</strong>計算「登記週年日」至 114/12/31，採足月計算，未滿一個月不計。<br>
+        2. <strong>115年起曆年制：</strong>每年 1/1~12/31。起始年未滿一月不計；到期年未滿一月<strong>強制算一月</strong>。<br>
+        3. <strong>時數計算：</strong>依月份比例計算 ($總時數 \times \frac{月份}{12}$)，計算結果四捨五入至小數點第一位。</p>
     </div>
 </div>
 
 <script>
     function calculate() {
-        const startInput = document.getElementById('startDate').value;
-        const nameInput = document.getElementById('userName').value;
-        if (!startInput) return;
+        const startVal = document.getElementById('startDate').value;
+        const nameVal = document.getElementById('userName').value;
+        if (!startVal) {
+            alert("請選擇有效的生效日期！");
+            return;
+        }
 
-        const startDate = new Date(startInput);
-        const userName = nameInput || "---";
-        document.getElementById('displayUserName').innerText = userName;
+        // 解析日期 (處理時區問題)
+        const parts = startVal.split('-');
+        const startDate = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+        
+        document.getElementById('displayUserName').innerText = nameVal || "未填寫";
 
-        // 計算六年屆期日
-        const expiryDate = new Date(startDate);
-        expiryDate.setFullYear(startDate.getFullYear() + 6);
-        expiryDate.setDate(expiryDate.getDate() - 1);
+        // 計算六年屆期日 (Y+6, D-1)
+        const expiryDate = new Date(startDate.getFullYear() + 6, startDate.getMonth(), startDate.getDate() - 1);
         
         document.getElementById('displayDuration').innerText = 
-            `${startDate.toLocaleDateString()} ～ ${expiryDate.toLocaleDateString()} (有效期間六年)`;
+            `${startDate.toLocaleDateString('zh-TW')} ～ ${expiryDate.toLocaleDateString('zh-TW')} (效期六年)`;
 
         const tbody = document.querySelector('#hoursTable tbody');
         tbody.innerHTML = '';
 
         let currentStart = new Date(startDate);
         let rows = [];
-        let yearCounter = 1;
+        let limit114 = new Date(2025, 11, 31); // 114/12/31
 
-        // --- 階段一：114年之前的登記年 (一年一簽) ---
-        while (true) {
-            let regYearEnd = new Date(currentStart);
-            regYearEnd.setFullYear(currentStart.getFullYear() + 1);
-            regYearEnd.setDate(regYearEnd.getDate() - 1);
-
-            // 如果這個登記年的結束日超過了 114/12/31 (2025/12/31)，就停止跑登記年制
-            if (regYearEnd > new Date("2025-12-31")) break;
+        // --- 階段一：114年之前的登記年 ---
+        let loopSafety = 0;
+        while (loopSafety < 10) {
+            let regYearEnd = new Date(currentStart.getFullYear() + 1, currentStart.getMonth(), currentStart.getDate() - 1);
+            
+            if (regYearEnd > limit114) break;
 
             rows.push({
-                year: `第 ${yearCounter++} 年 (登記年)`,
-                range: `${currentStart.toLocaleDateString()} ~ ${regYearEnd.toLocaleDateString()}`,
+                year: `第 ${rows.length + 1} 年 (登記制)`,
+                range: `${formatDate(currentStart)} ~ ${formatDate(regYearEnd)}`,
                 total: 18,
                 cpr: 4
             });
-            currentStart = new Date(regYearEnd);
-            currentStart.setDate(currentStart.getDate() + 1);
+            currentStart = new Date(regYearEnd.getFullYear(), regYearEnd.getMonth(), regYearEnd.getDate() + 1);
+            loopSafety++;
         }
 
-        // --- 階段二：114年過渡期 (嚴格採「未滿月不計」) ---
-        const endOf114 = new Date("2025-12-31");
-        if (currentStart <= endOf114) {
-            // 使用專門的「足月計算」函數
-            let fullMonths = countFullMonthsOnly(currentStart, endOf114);
+        // --- 階段二：114年過渡期 (足月計) ---
+        if (currentStart <= limit114) {
+            let months = countFullCalendarMonths(currentStart, limit114);
             rows.push({
-                year: "114年度 (過渡比例)",
-                range: `${currentStart.toLocaleDateString()} ~ 2025/12/31`,
-                total: calcProRata(fullMonths, 18),
-                cpr: calcProRata(fullMonths, 4)
+                year: "114年 (過渡比例)",
+                range: `${formatDate(currentStart)} ~ 2025/12/31`,
+                total: calcPro(months, 18),
+                cpr: calcPro(months, 4)
             });
-            currentStart = new Date("2026-01-01");
+            currentStart = new Date(2026, 0, 1);
         }
 
         // --- 階段三：115年起曆年制 ---
-        while (currentStart <= expiryDate) {
+        loopSafety = 0;
+        while (currentStart <= expiryDate && loopSafety < 10) {
             let year = currentStart.getFullYear();
             let yearEnd = new Date(year, 11, 31);
-            let isFinalYear = false;
+            let isFinal = false;
 
             if (yearEnd >= expiryDate) {
                 yearEnd = new Date(expiryDate);
-                isFinalYear = true;
+                isFinal = true;
             }
 
-            let months = 0;
-            // 判斷是否為完整的 1/1 ~ 12/31
+            let m;
             if (currentStart.getMonth() === 0 && currentStart.getDate() === 1 && 
                 yearEnd.getMonth() === 11 && yearEnd.getDate() === 31) {
-                months = 12;
+                m = 12;
             } else {
-                // 曆年制非完整年：起始月未滿不計(start)，到期當月強計(end)
-                months = countMonthsCalendar(currentStart, yearEnd, isFinalYear ? 'end' : 'start');
+                if (isFinal) {
+                    // 到期年：強算一月 (月份差 + 1)
+                    m = (yearEnd.getFullYear() - currentStart.getFullYear()) * 12 + (yearEnd.getMonth() - currentStart.getMonth()) + 1;
+                } else {
+                    // 起始年：足月計算
+                    m = countFullCalendarMonths(currentStart, yearEnd);
+                }
             }
 
             rows.push({
                 year: `${year - 1911} 年度 (曆年制)`,
-                range: `${currentStart.toLocaleDateString()} ~ ${yearEnd.toLocaleDateString()}`,
-                total: months === 12 ? 18 : calcProRata(months, 18),
-                cpr: months === 12 ? 4 : calcProRata(months, 4)
+                range: `${formatDate(currentStart)} ~ ${formatDate(yearEnd)}`,
+                total: m === 12 ? 18 : calcPro(m, 18),
+                cpr: m === 12 ? 4 : calcPro(m, 4)
             });
 
-            if (isFinalYear) break;
+            if (isFinal) break;
             currentStart = new Date(year + 1, 0, 1);
+            loopSafety++;
         }
 
-        // 渲染表格
+        // 繪製表格
         rows.forEach(r => {
             const tr = document.createElement('tr');
-            tr.innerHTML = `
-                <td>${r.year}</td>
-                <td>${r.range}</td>
-                <td class="highlight">${r.total} 小時</td>
-                <td>${r.cpr} 小時</td>
-            `;
+            tr.innerHTML = `<td>${r.year}</td><td>${r.range}</td><td class="highlight">${r.total} 小時</td><td>${r.cpr} 小時</td>`;
             tbody.appendChild(tr);
         });
     }
 
-    // 專門用於 114 過渡期的「只計足月」邏輯
-    function countFullMonthsOnly(d1, d2) {
+    // 足月計算：例如 12/1~12/31 算一個月，10/25~12/31 算兩個月
+    function countFullCalendarMonths(d1, d2) {
         let count = 0;
-        let tempDate = new Date(d1);
+        let cur = new Date(d1.getFullYear(), d1.getMonth(), 1);
+        // 如果不是 1 號開始，足月要從下個月 1 號算起
+        if (d1.getDate() > 1) {
+            cur.setMonth(cur.getMonth() + 1);
+        }
         while (true) {
-            // 往下推一個月
-            tempDate.setMonth(tempDate.getMonth() + 1);
-            if (tempDate <= d2) {
+            let lastDay = new Date(cur.getFullYear(), cur.getMonth() + 1, 0);
+            if (lastDay <= d2) {
                 count++;
+                cur.setMonth(cur.getMonth() + 1);
             } else {
                 break;
             }
@@ -193,26 +202,13 @@
         return count;
     }
 
-    // 用於 115 年曆年制的月份邏輯
-    function countMonthsCalendar(d1, d2, type) {
-        let months = (d2.getFullYear() - d1.getFullYear()) * 12 + (d2.getMonth() - d1.getMonth());
-        let dayDiff = d2.getDate() - d1.getDate();
-        
-        if (type === 'start') {
-            if (dayDiff >= 0) months += 1; 
-            return Math.max(0, months);
-        } else {
-            // 屆期年度：未滿一個月強制算一個月
-            months += 1; 
-            return months;
-        }
+    function calcPro(m, base) {
+        if (m <= 0) return 0;
+        return Math.round((m / 12) * base * 10) / 10;
     }
 
-    function calcProRata(months, base) {
-        if (months <= 0) return 0;
-        if (months >= 12) return base;
-        // 四捨五入到小數第一位
-        return Math.round((months / 12) * base * 10) / 10;
+    function formatDate(d) {
+        return `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()}`;
     }
 </script>
 
